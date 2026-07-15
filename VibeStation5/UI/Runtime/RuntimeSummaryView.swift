@@ -45,6 +45,11 @@ struct RuntimeSummaryView: View {
                     .foregroundStyle(VibeTheme.green)
                 Label("ARM-native x86-64 interpreter", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(VibeTheme.green)
+                Label(
+                    model.jitStatus.title,
+                    systemImage: model.jitStatus.systemImage
+                )
+                .foregroundStyle(model.jitStatus.isReady ? VibeTheme.green : VibeTheme.yellow)
                 Label("Base relocations and HLE import thunks", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(VibeTheme.green)
                 Label("Cooperative guest threads and core HLE", systemImage: "checkmark.circle.fill")

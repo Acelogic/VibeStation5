@@ -27,3 +27,13 @@ xcuserdata/
 # Vendored dependency build products; source and upstream licenses remain.
 Vendor/Capstone/.build/
 Vendor/Capstone/build/
+
+# Android Studio and Gradle build products
+Android/.gradle/
+Android/local.properties
+Android/**/build/
+Android/**/.cxx/
+Android/**/.externalNativeBuild/
+Android/.idea/
+*.apk
+*.aab

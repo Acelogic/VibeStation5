@@ -18,6 +18,55 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Just-in-Time Compilation") {
+                Toggle("Use JIT when externally enabled", isOn: $model.jitEnabled)
+
+                Label(model.jitStatus.title, systemImage: model.jitStatus.systemImage)
+                    .foregroundStyle(jitStatusColor)
+                Text(model.jitStatus.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if model.jitEnabled {
+                    Button("Refresh JIT Status", systemImage: "arrow.clockwise") {
+                        model.refreshJITStatus()
+                    }
+
+                    Link(
+                        "SideStore / StikDebug Setup",
+                        destination: URL(string: "https://docs.sidestore.io/docs/advanced/jit")!
+                    )
+
+                    DisclosureGroup("Signing and activation details") {
+                        if model.jitStatus.requiresJITEntitlements {
+                            LabeledContent(
+                                "allow-jit",
+                                value: model.jitStatus.allowJITEntitlement ? "Present" : "Missing"
+                            )
+                            LabeledContent(
+                                "unsigned executable memory",
+                                value: model.jitStatus.allowUnsignedExecutableMemoryEntitlement
+                                    ? "Present"
+                                    : "Missing"
+                            )
+                        }
+                        if model.jitStatus.requiresExternalDebugger {
+                            LabeledContent(
+                                "get-task-allow",
+                                value: model.jitStatus.getTaskAllowEntitlement ? "Present" : "Missing"
+                            )
+                            LabeledContent(
+                                "Debugger activation",
+                                value: model.jitStatus.debuggerAttached ? "Detected" : "Not detected"
+                            )
+                        }
+                        if model.jitStatus.isTXMConstrained {
+                            LabeledContent("Memory security", value: "iPadOS 26+ TXM")
+                        }
+                    }
+                }
+            }
+
             Section("Game Folders") {
                 ForEach(model.folders) { folder in
                     HStack {
@@ -51,6 +100,9 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .onAppear {
+            model.refreshJITStatus()
+        }
         .fileImporter(
             isPresented: $isImportingFolder,
             allowedContentTypes: [.folder],
@@ -65,5 +117,17 @@ struct SettingsView: View {
             }
         }
     }
-}
 
+    private var jitStatusColor: Color {
+        switch model.jitStatus.availability {
+        case .ready:
+            VibeTheme.green
+        case .disabled:
+            .secondary
+        case .armed, .waitingForDebugger:
+            VibeTheme.yellow
+        case .missingEntitlements, .unavailable:
+            VibeTheme.red
+        }
+    }
+}

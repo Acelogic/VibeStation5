@@ -35,6 +35,7 @@
 		6320C4747CC54CD3DE684574 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C50E8627DBCD7A6530516E /* Game.swift */; };
 		6372B6EC9E3F49A4B8302E1B /* BinaryDataReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F53988B1535C40217512979 /* BinaryDataReader.swift */; };
 		658202FAA12D5C75468A9D6A /* CCapstone in Frameworks */ = {isa = PBXBuildFile; productRef = A7AB9FDE93016983C01B1FF2 /* CCapstone */; };
+		65AED7DDE56229043764D440 /* JITCapabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E5728B34FC7FE5CED96925 /* JITCapabilityTests.swift */; };
 		6AA089359104398E625613C9 /* GuestAudioOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C6AC047CADB1A4BE88F56F /* GuestAudioOutput.swift */; };
 		6C9FF94D63AB86AE30B56850 /* PlatformSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B79F4B5F02D76B659E407189 /* PlatformSupport.swift */; };
 		6EF1927736B5D1C805E1B9B7 /* ARMNativeX86Interpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE8E599E312FD063547FE08E /* ARMNativeX86Interpreter.swift */; };
@@ -51,6 +52,7 @@
 		9336C5B21DCD000917ECE430 /* X86Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E12CC395F37ABB9B7A2728CA /* X86Decoder.swift */; };
 		9499FEE20D63C1DB93AF2923 /* VirtualMemoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15BF06C72058FB93409AB56B /* VirtualMemoryTests.swift */; };
 		94C192AB5BED677F39A81F45 /* CCapstone in Frameworks */ = {isa = PBXBuildFile; productRef = 0439A93129989E7DE87A7D2E /* CCapstone */; };
+		958573FC28A313148671A3F6 /* JITCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5E0F687BE84F330C4017C4 /* JITCapability.swift */; };
 		9EA7160A4F8F32217285EE40 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE48D9E68D26CD4AD4E506FF /* RootView.swift */; };
 		A19AD6A72E104984059B2965 /* ExecutableLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA37BE5A81B020938EF4B6D /* ExecutableLoader.swift */; };
 		A1D4FBE3C2B5987F9309C2A8 /* PlatformSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B79F4B5F02D76B659E407189 /* PlatformSupport.swift */; };
@@ -65,6 +67,7 @@
 		CF61935351DF3F3906F1D630 /* ExecutableParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB44534F7AE17CBB39FFC0D /* ExecutableParserTests.swift */; };
 		CFEE9049E915B8DA5A1BD391 /* RuntimeSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EBC3AE040320A8090EAC563 /* RuntimeSummaryView.swift */; };
 		D0558CC715B9A90B3F30CC70 /* VibeStation5App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD4BC19856DC21471153AFF /* VibeStation5App.swift */; };
+		D74AF9E2E114D942738A3B29 /* JITCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5E0F687BE84F330C4017C4 /* JITCapability.swift */; };
 		E07931EB8C15CF72DE9E87E1 /* GameArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0662BC2493AE92D00D08CDC /* GameArtwork.swift */; };
 		E2ADC95C940C1FE5C3945296 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C50E8627DBCD7A6530516E /* Game.swift */; };
 		E4B4A5D9963D0D99064E4B15 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0A2EC94BD4C3693D44E6E5 /* AppModel.swift */; };
@@ -103,6 +106,7 @@
 		4FE5D5384DCD273F7899D9BB /* TouchControlsOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchControlsOverlay.swift; sourceTree = "<group>"; };
 		58D7CD1286EDFFFFF7823BF8 /* SupportDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportDetailsView.swift; sourceTree = "<group>"; };
 		5AC331194C1337525CDBA8D5 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		5D5E0F687BE84F330C4017C4 /* JITCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JITCapability.swift; sourceTree = "<group>"; };
 		5EBC3AE040320A8090EAC563 /* RuntimeSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeSummaryView.swift; sourceTree = "<group>"; };
 		60B85DACBD09C5B68E501326 /* VibeStation5.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VibeStation5.entitlements; sourceTree = "<group>"; };
 		64C6AC047CADB1A4BE88F56F /* GuestAudioOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestAudioOutput.swift; sourceTree = "<group>"; };
@@ -112,6 +116,7 @@
 		7F53988B1535C40217512979 /* BinaryDataReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryDataReader.swift; sourceTree = "<group>"; };
 		803BEC5ADFD6B41C85D457F7 /* GameLibraryScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameLibraryScanner.swift; sourceTree = "<group>"; };
 		80C7CFFFCA15627BD2419148 /* VibeStation5Probe */ = {isa = PBXFileReference; includeInIndex = 0; path = VibeStation5Probe; sourceTree = BUILT_PRODUCTS_DIR; };
+		80E5728B34FC7FE5CED96925 /* JITCapabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JITCapabilityTests.swift; sourceTree = "<group>"; };
 		84AC543DC9914A3CD0C3FBAB /* FolderBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderBookmarkStore.swift; sourceTree = "<group>"; };
 		8E0A2EC94BD4C3693D44E6E5 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		8FB44534F7AE17CBB39FFC0D /* ExecutableParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutableParserTests.swift; sourceTree = "<group>"; };
@@ -127,6 +132,7 @@
 		CBA37BE5A81B020938EF4B6D /* ExecutableLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutableLoader.swift; sourceTree = "<group>"; };
 		CE8E599E312FD063547FE08E /* ARMNativeX86Interpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARMNativeX86Interpreter.swift; sourceTree = "<group>"; };
 		D3288674878A72361FA5EF19 /* RuntimeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeModels.swift; sourceTree = "<group>"; };
+		D6A15596D4C79BCB63F4B2C2 /* VibeStation5-iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "VibeStation5-iOS.entitlements"; sourceTree = "<group>"; };
 		DC53E4C9CC58BFF5A89D0BBB /* GuestIOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestIOTests.swift; sourceTree = "<group>"; };
 		DE48D9E68D26CD4AD4E506FF /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		E12CC395F37ABB9B7A2728CA /* X86Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = X86Decoder.swift; sourceTree = "<group>"; };
@@ -191,6 +197,7 @@
 			children = (
 				8FB44534F7AE17CBB39FFC0D /* ExecutableParserTests.swift */,
 				DC53E4C9CC58BFF5A89D0BBB /* GuestIOTests.swift */,
+				80E5728B34FC7FE5CED96925 /* JITCapabilityTests.swift */,
 				3CC4C677A16806E79A3F3121 /* PlatformSupportTests.swift */,
 				15BF06C72058FB93409AB56B /* VirtualMemoryTests.swift */,
 			);
@@ -246,6 +253,7 @@
 				803BEC5ADFD6B41C85D457F7 /* GameLibraryScanner.swift */,
 				64C6AC047CADB1A4BE88F56F /* GuestAudioOutput.swift */,
 				B2CFF08F878F615DA861B1AA /* GuestInputManager.swift */,
+				5D5E0F687BE84F330C4017C4 /* JITCapability.swift */,
 				F6F8A75703F1F32968188EF6 /* PS5RuntimeEngine.swift */,
 			);
 			path = Services;
@@ -294,6 +302,7 @@
 		B67E74A4AF98DBA6754E7A57 /* VibeStation5 */ = {
 			isa = PBXGroup;
 			children = (
+				D6A15596D4C79BCB63F4B2C2 /* VibeStation5-iOS.entitlements */,
 				60B85DACBD09C5B68E501326 /* VibeStation5.entitlements */,
 				890F4DD04BC611F602D12990 /* App */,
 				30986621A7917E67CAF00414 /* Core */,
@@ -497,6 +506,7 @@
 				5CC5275A150BADA677F7E825 /* GameLibraryScanner.swift in Sources */,
 				E8BECCA04ADC6DEF91125F6D /* GuestAudioOutput.swift in Sources */,
 				F974079A95C2E2FD8D0E2A45 /* GuestInputManager.swift in Sources */,
+				958573FC28A313148671A3F6 /* JITCapability.swift in Sources */,
 				8AF6F7CD898259A1AAF9898F /* LibraryView.swift in Sources */,
 				0EAB04BD4319404A8EC568BA /* PS5RuntimeEngine.swift in Sources */,
 				A1D4FBE3C2B5987F9309C2A8 /* PlatformSupport.swift in Sources */,
@@ -531,6 +541,7 @@
 				3CFACAEE31C99B87A63E17D1 /* GameLibraryScanner.swift in Sources */,
 				1EF08F449FEC14A0AE5A6EAD /* GuestAudioOutput.swift in Sources */,
 				29DCAF4745CA6BDE59908920 /* GuestInputManager.swift in Sources */,
+				D74AF9E2E114D942738A3B29 /* JITCapability.swift in Sources */,
 				7C3C4834ADF2545A2C0920EE /* LibraryView.swift in Sources */,
 				596161A108CB7532B84CC99A /* PS5RuntimeEngine.swift in Sources */,
 				6C9FF94D63AB86AE30B56850 /* PlatformSupport.swift in Sources */,
@@ -572,6 +583,7 @@
 			files = (
 				CF61935351DF3F3906F1D630 /* ExecutableParserTests.swift in Sources */,
 				8C38CD36DCAA8C6FB8E00D48 /* GuestIOTests.swift in Sources */,
+				65AED7DDE56229043764D440 /* JITCapabilityTests.swift in Sources */,
 				26CBB8927607F0FE829E1E05 /* PlatformSupportTests.swift in Sources */,
 				9499FEE20D63C1DB93AF2923 /* VirtualMemoryTests.swift in Sources */,
 			);
@@ -593,6 +605,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "VibeStation5/VibeStation5-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
@@ -746,6 +759,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "VibeStation5/VibeStation5-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";

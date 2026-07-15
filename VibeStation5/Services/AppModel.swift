@@ -37,6 +37,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var inputStatus = "Touch controls"
     @Published private(set) var audioStatus = "Waiting for guest PCM"
     @Published private(set) var menuPresentation = DreamingSarahMenuPresentation()
+    @Published var jitEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(jitEnabled, forKey: Self.jitEnabledDefaultsKey)
+            refreshJITStatus()
+        }
+    }
+    @Published private(set) var jitStatus: JITCapabilityStatus
     @Published var alertMessage: String?
 
     let platformSupport = PlatformSupport.current
@@ -54,8 +61,14 @@ final class AppModel: ObservableObject {
     private var lastMenuButtons: GuestPadButtons = []
     private var menuInputTask: Task<Void, Never>?
     private var menuFallbackTask: Task<Void, Never>?
+    private static let jitEnabledDefaultsKey = "VibeStation5.JITEnabled"
 
     init(bookmarkStore: FolderBookmarkStore? = nil) {
+        let storedJITPreference = UserDefaults.standard.object(
+            forKey: Self.jitEnabledDefaultsKey
+        ) as? Bool ?? true
+        jitEnabled = storedJITPreference
+        jitStatus = JITCapability.inspect(requested: storedJITPreference)
         let store = bookmarkStore ?? FolderBookmarkStore()
         self.bookmarkStore = store
         var loadedFolders = store.load()
@@ -83,6 +96,7 @@ final class AppModel: ObservableObject {
         folders = loadedFolders
         appendLog(.info, "VibeStation5 native runtime initialized.")
         appendLog(.info, "Host: \(platformSupport.platformName) / \(platformSupport.modelIdentifier)")
+        appendLog(.info, "JIT: \(jitStatus.title).")
         inputManager.setStatusHandler { [weak self] status in
             Task { @MainActor [weak self] in
                 self?.inputStatus = status
@@ -187,6 +201,7 @@ final class AppModel: ObservableObject {
             alertMessage = "Prepare a valid executable first."
             return
         }
+        refreshJITStatus()
         runtimeStage = .running
         videoFrame = nil
         didReachDreamingSarahMenu = false
@@ -201,6 +216,16 @@ final class AppModel: ObservableObject {
         audioOutput.start()
         startMenuInputMonitoring()
         appendLog(.info, "Starting the guest with the ARM-native x86-64 interpreter…")
+        if jitStatus.isReady {
+            appendLog(
+                .success,
+                "JIT executable memory is enabled. The code-cache hook is ready; guest execution uses the interpreter until the x86-64-to-ARM64 translator is connected."
+            )
+        } else if jitEnabled {
+            appendLog(.warning, "\(jitStatus.title): \(jitStatus.detail) Using the interpreter fallback.")
+        } else {
+            appendLog(.info, "JIT is disabled; using the interpreter fallback.")
+        }
         appendLog(.info, "Input: \(inputStatus).")
         do {
             let inputManager = inputManager
@@ -303,6 +328,10 @@ final class AppModel: ObservableObject {
         runtimeLogs.removeAll(keepingCapacity: true)
         Task { await runtime.clear() }
         appendLog(.info, "Runtime console cleared.")
+    }
+
+    func refreshJITStatus(runProbe: Bool = true) {
+        jitStatus = JITCapability.inspect(requested: jitEnabled, runProbe: runProbe)
     }
 
     private func appendLog(_ severity: RuntimeLogSeverity, _ message: String) {

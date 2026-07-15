@@ -48,11 +48,27 @@ struct SupportDetailsView: View {
                 .vibePanel()
 
                 VStack(alignment: .leading, spacing: 10) {
+                    Label(model.jitStatus.title, systemImage: model.jitStatus.systemImage)
+                        .font(.title2.bold())
+                        .foregroundStyle(model.jitStatus.isReady ? VibeTheme.green : VibeTheme.yellow)
+                    Text(model.jitStatus.detail)
+                        .foregroundStyle(.secondary)
+                    if model.jitStatus.isTXMConstrained {
+                        Text("This iPad uses the iPadOS 26+ Trusted Execution Monitor path. StikDebug compatibility is currently limited to explicitly supported apps.")
+                            .font(.caption)
+                            .foregroundStyle(VibeTheme.yellow)
+                    }
+                }
+                .padding(20)
+                .vibePanel()
+
+                VStack(alignment: .leading, spacing: 10) {
                     Text("Port Status")
                         .font(.title2.bold())
                     status("SwiftUI application and game library", complete: true)
                     status("PS4/PS5 SELF and 64-bit ELF preflight", complete: true)
                     status("Sparse guest virtual memory", complete: true)
+                    status("JIT signing and executable-memory probe", complete: model.jitStatus.isReady)
                     status("x86-64 interpreter/AOT backend", complete: false)
                     status("SharpEmu HLE service surface", complete: false)
                     status("Metal renderer", complete: false)
@@ -65,6 +81,9 @@ struct SupportDetailsView: View {
         }
         .background(VibeTheme.background)
         .navigationTitle("Host & Port Status")
+        .onAppear {
+            model.refreshJITStatus()
+        }
     }
 
     private func status(_ text: String, complete: Bool) -> some View {
@@ -72,4 +91,3 @@ struct SupportDetailsView: View {
             .foregroundStyle(complete ? VibeTheme.green : VibeTheme.yellow)
     }
 }
-
