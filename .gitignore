@@ -1,0 +1,29 @@
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local diagnostics may contain logs, captured guest memory, and user-supplied
+# game files. Never publish them.
+.diagnostics/
+
+# Xcode and Swift build products
+DerivedData/
+.build*/
+build/
+*.xcresult
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Vendored dependency build products; source and upstream licenses remain.
+Vendor/Capstone/.build/
+Vendor/Capstone/build/
