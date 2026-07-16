@@ -214,7 +214,6 @@ final class AppModel: ObservableObject {
         menuFallbackTask?.cancel()
         menuAudio.stopMusic()
         audioOutput.start()
-        startMenuInputMonitoring()
         appendLog(.info, "Starting the guest with the ARM-native x86-64 interpreter…")
         if jitStatus.isReady {
             appendLog(
@@ -266,8 +265,7 @@ final class AppModel: ObservableObject {
             if let menuFlipIndex {
                 didReachDreamingSarahMenu = true
                 runtimeStage = .launched
-                beginInteractiveMenu()
-                appendLog(.success, "Dreaming Sarah reached its menu-ready AGC display flip.")
+                appendLog(.success, "Dreaming Sarah reached an AGC display flip after its menu layouts loaded.")
                 appendLog(.info, result.runtimeEvents[menuFlipIndex])
             }
             for instruction in result.recentInstructions {
@@ -358,8 +356,7 @@ final class AppModel: ObservableObject {
         else { return }
         didReachDreamingSarahMenu = true
         runtimeStage = .launched
-        beginInteractiveMenu()
-        appendLog(.success, "Dreaming Sarah reached its live menu-ready AGC display flip.")
+        appendLog(.success, "Dreaming Sarah reached a live AGC display flip after its menu layouts loaded.")
         appendLog(.info, event)
     }
 

@@ -14,8 +14,6 @@ struct RuntimeConsoleView: View {
             GuestVideoPanel(
                 frame: model.videoFrame,
                 stage: model.runtimeStage,
-                menuReady: model.didReachDreamingSarahMenu,
-                menu: model.menuPresentation,
                 input: model.inputManager
             )
                 .padding(16)
@@ -59,8 +57,6 @@ struct RuntimeConsoleView: View {
             FullScreenGuestVideoView(
                 frame: model.videoFrame,
                 stage: model.runtimeStage,
-                menuReady: model.didReachDreamingSarahMenu,
-                menu: model.menuPresentation,
                 input: model.inputManager,
                 inputStatus: model.inputStatus,
                 audioStatus: model.audioStatus,
@@ -96,8 +92,6 @@ struct RuntimeConsoleView: View {
 private struct FullScreenGuestVideoView: View {
     let frame: GuestVideoFrame?
     let stage: RuntimeStage
-    let menuReady: Bool
-    let menu: DreamingSarahMenuPresentation
     let input: GuestInputManager
     let inputStatus: String
     let audioStatus: String
@@ -111,8 +105,6 @@ private struct FullScreenGuestVideoView: View {
             GuestVideoPanel(
                 frame: frame,
                 stage: stage,
-                menuReady: menuReady,
-                menu: menu,
                 input: input,
                 isFullScreen: true
             )
@@ -155,21 +147,13 @@ private struct FullScreenGuestVideoView: View {
 private struct GuestVideoPanel: View {
     let frame: GuestVideoFrame?
     let stage: RuntimeStage
-    let menuReady: Bool
-    let menu: DreamingSarahMenuPresentation
     let input: GuestInputManager
     var isFullScreen = false
 
     var body: some View {
         ZStack {
-            GuestMetalVideoView(frame: menuReady && frame?.hasVisibleContent != true ? nil : frame)
-            if menuReady, frame?.hasVisibleContent != true {
-                Image("DreamingSarahMenu")
-                    .resizable()
-                    .scaledToFit()
-                    .accessibilityLabel("Dreaming Sarah main menu")
-                DreamingSarahInteractiveMenu(presentation: menu)
-            } else if let frame {
+            GuestMetalVideoView(frame: frame)
+            if let frame {
                 if !frame.hasVisibleContent {
                     videoMessage(
                         title: "AGC stream connected",
@@ -220,57 +204,6 @@ private struct GuestVideoPanel: View {
         }
         .padding(22)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-private struct DreamingSarahInteractiveMenu: View {
-    let presentation: DreamingSarahMenuPresentation
-
-    var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: max(3, geometry.size.height * 0.012)) {
-                if presentation.screen == .options {
-                    Text("OPTIONS")
-                        .padding(.bottom, 2)
-                }
-                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                    Text(index == presentation.selectedIndex ? "*\(item)*" : item)
-                        .foregroundStyle(index == presentation.selectedIndex ? .white : .white.opacity(0.82))
-                        .accessibilityAddTraits(index == presentation.selectedIndex ? .isSelected : [])
-                }
-                if let message = presentation.statusMessage {
-                    Text(message)
-                        .font(.system(size: max(8, geometry.size.height * 0.026), design: .monospaced))
-                        .foregroundStyle(Color(red: 0.95, green: 0.72, blue: 0.92))
-                        .padding(.top, 3)
-                }
-            }
-            .font(.system(
-                size: max(11, min(22, geometry.size.height * 0.04)),
-                weight: .regular,
-                design: .monospaced
-            ))
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .frame(width: geometry.size.width * 0.46)
-            .background(Color.black)
-            .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.54)
-        }
-        .allowsHitTesting(false)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(presentation.screen == .main ? "Dreaming Sarah main menu" : "Dreaming Sarah options")
-    }
-
-    private var items: [String] {
-        if presentation.screen == .main {
-            return DreamingSarahMenuPresentation.mainItems
-        }
-        return [
-            "Music volume \(Int(presentation.musicVolume * 100))%",
-            "Effects volume \(Int(presentation.effectsVolume * 100))%",
-            "Back"
-        ]
     }
 }
 

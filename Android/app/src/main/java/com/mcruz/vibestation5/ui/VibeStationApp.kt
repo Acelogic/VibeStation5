@@ -4,6 +4,7 @@
 package com.mcruz.vibestation5.ui
 
 import android.app.Activity
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.view.WindowInsets
@@ -342,7 +343,8 @@ private fun RuntimeScreen(state: VibeStationState, model: RuntimeViewModel, wide
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         ScreenHeader(
             title = "Runtime",
-            subtitle = model.selectedGame?.name ?: "Select a game from the library",
+            subtitle = if (state.guestActive) "Dreaming Sarah • native Android guest" else model.selectedGame?.name
+                ?: "Select a game or launch the sideloaded development image",
         ) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { fullScreen = true }) { Text("Full Screen") }
@@ -351,9 +353,9 @@ private fun RuntimeScreen(state: VibeStationState, model: RuntimeViewModel, wide
                     enabled = model.selectedGame != null && state.stage != RuntimeStage.Preparing,
                 ) { Text("Prepare") }
                 Button(
-                    onClick = if (state.demoActive) model::stopDemo else model::startInputAudioDemo,
-                    enabled = state.preparation != null,
-                ) { Text(if (state.demoActive) "Stop Demo" else "Input/Audio Demo") }
+                    onClick = { if (state.guestActive) model.stopGuest() else model.launchDreamingSarah() },
+                    enabled = state.stage != RuntimeStage.Preparing,
+                ) { Text(if (state.guestActive) "Pause Guest" else "Launch Dreaming Sarah") }
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -384,20 +386,44 @@ private fun GuestPanel(state: VibeStationState, model: RuntimeViewModel, modifie
             RoundedCornerShape(15.dp),
         ),
     ) {
-        if (state.demoActive) {
-            Image(
-                painterResource(R.drawable.dreaming_sarah_menu),
-                contentDescription = "Dreaming Sarah compatibility preview",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-            )
-            InteractiveMenu(state.menu, Modifier.align(Alignment.Center))
+        if (state.guestActive) {
+            val frame = state.guestFrame
+            if (frame != null) {
+                val bitmap = remember(frame.sequence) {
+                    Bitmap.createBitmap(frame.argb8888, frame.width, frame.height, Bitmap.Config.ARGB_8888)
+                }
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Guest video output",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Column(Modifier.align(Alignment.Center).padding(horizontal = 80.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Native x86-64 guest executing", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        state.guestStatus,
+                        color = Color.White.copy(alpha = 0.62f),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Text(
+                        "Guest video HLE has not presented a frame yet",
+                        color = Color(0xFFFFC4E7),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+            }
             TouchControls(model, Modifier.fillMaxSize())
         } else {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(if (state.stage == RuntimeStage.Ready) "Android image ready" else "No Android guest frame", fontWeight = FontWeight.Bold)
                 Text(
-                    if (state.stage == RuntimeStage.Ready) "Start the input/audio compatibility demo." else "Prepare a PS4/PS5 SELF or decrypted ELF image.",
+                    if (state.stage == RuntimeStage.Ready) "Launch the prepared native guest image."
+                    else "Select a game from the library before launching.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -417,7 +443,10 @@ private fun GuestPanel(state: VibeStationState, model: RuntimeViewModel, modifie
 @Composable
 private fun InteractiveMenu(menu: MenuPresentation, modifier: Modifier = Modifier) {
     Column(
-        modifier.background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(8.dp)).padding(horizontal = 24.dp, vertical = 12.dp),
+        modifier
+            .widthIn(min = 220.dp)
+            .background(Color.Black, RoundedCornerShape(8.dp))
+            .padding(horizontal = 24.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         menu.items.forEachIndexed { index, item ->
@@ -453,9 +482,9 @@ private fun TouchControls(model: RuntimeViewModel, modifier: Modifier = Modifier
             ControlButton("▼") { model.input.touch(GuestAction.Down) }
         }
         Row(Modifier.align(Alignment.BottomEnd), verticalAlignment = Alignment.CenterVertically) {
-            ControlButton("×", 46.dp) { model.input.touch(GuestAction.Back) }
+            ControlButton("×", 46.dp) { model.input.touch(GuestAction.Confirm) }
             Spacer(Modifier.width(12.dp))
-            ControlButton("○", 46.dp) { model.input.touch(GuestAction.Confirm) }
+            ControlButton("○", 46.dp) { model.input.touch(GuestAction.Back) }
         }
         Row(Modifier.align(Alignment.TopCenter)) {
             ControlButton("L1") { model.input.touch(GuestAction.Left) }
@@ -488,16 +517,19 @@ private fun RuntimeSummary(state: VibeStationState, modifier: Modifier) {
         Text(state.stage.label, color = stageColor(state.stage), fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
         val report = state.preparation
-        if (report == null) {
+        if (report == null && !state.guestActive) {
             EmptyMessage("Executable details appear here after preparation.")
         } else {
-            SummaryRow("Format", report.format)
-            SummaryRow("Entry point", "0x%016X".format(report.entryPoint))
-            SummaryRow("Program headers", report.programHeaderCount.toString())
-            SummaryRow("Loadable segments", report.loadableSegmentCount.toString())
-            SummaryRow("Reserved memory", formatBytes(report.reservedMemoryBytes))
-            SummaryRow("Encrypted", report.encryptedSegmentCount.toString())
-            SummaryRow("Compressed", report.compressedSegmentCount.toString())
+            report?.let {
+                SummaryRow("Format", it.format)
+                SummaryRow("Entry point", "0x%016X".format(it.entryPoint))
+                SummaryRow("Loadable segments", it.loadableSegmentCount.toString())
+                SummaryRow("Reserved memory", formatBytes(it.reservedMemoryBytes))
+            }
+            SummaryRow("Instructions", "%,d".format(state.guestInstructionCount))
+            SummaryRow("HLE calls", "%,d".format(state.guestImportCount))
+            SummaryRow("Audio", state.audioStatus)
+            SummaryRow("Input", state.inputStatus)
         }
     }
 }
@@ -556,11 +588,12 @@ private fun SettingsScreen(state: VibeStationState) {
                 StatusLine("C++ loader through JNI", state.nativeBackend != "JNI unavailable")
                 StatusLine("Persistent SAF library folders", true)
                 StatusLine("Touch, keyboard, and gamepad", true)
-                StatusLine("Android audio cues", true)
-                StatusLine("x86-64 guest interpreter", false)
-                StatusLine("GPU / guest video backend", false)
+                StatusLine("Guest PCM through Android AudioTrack", true)
+                StatusLine("Native x86-64 guest interpreter", true)
+                StatusLine("AGC / PM4 command processor", true)
+                StatusLine("Gen5 shader rasterizer", false)
                 Text(
-                    "Android does not use the SideStore/StikDebug path. The current Android target is a native loader, preflight, input, audio, and UI port; guest CPU execution is still being ported from Swift.",
+                    "Android runs the PS5 SELF through the C++ interpreter and processes real AGC command buffers through JNI. Shader translation and rasterization are the remaining video-backend work; blank guest buffers are not replaced with host-rendered game screens.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 10.dp),
@@ -591,11 +624,18 @@ private fun FullScreenGuest(state: VibeStationState, model: RuntimeViewModel, on
     ) {
         val view = LocalView.current
         DisposableEffect(Unit) {
-            val window = (view.context as? Activity)?.window
-            val controller = window?.let { WindowCompat.getInsetsController(it, view) }
-            controller?.hide(WindowInsetsCompat.Type.systemBars())
-            controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val controller = view.windowInsetsController
+                controller?.hide(WindowInsets.Type.systemBars())
+                controller?.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                onDispose { controller?.show(WindowInsets.Type.systemBars()) }
+            } else {
+                val window = (view.context as? Activity)?.window
+                val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+                controller?.hide(WindowInsetsCompat.Type.systemBars())
+                controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+            }
         }
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             GuestPanel(state, model, Modifier.fillMaxSize())
@@ -676,7 +716,7 @@ private fun formatBytes(bytes: Long): String = when {
 }
 
 private fun stageColor(stage: RuntimeStage): Color = when (stage) {
-    RuntimeStage.Ready, RuntimeStage.InputDemo -> Color(0xFF77E0A6)
+    RuntimeStage.Ready, RuntimeStage.Running -> Color(0xFF77E0A6)
     RuntimeStage.Failed -> Color(0xFFFF8A8A)
     RuntimeStage.Preparing -> Color(0xFFFFD27A)
     RuntimeStage.Idle -> Color(0xFFB6BED3)

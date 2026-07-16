@@ -5,14 +5,18 @@ package com.mcruz.vibestation5
 
 import android.app.Application
 import android.content.Intent
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.mcruz.vibestation5.core.ExecutableInspector
+import com.mcruz.vibestation5.core.GuestVideoFrame
+import com.mcruz.vibestation5.core.NativeGuestRuntime
+import com.mcruz.vibestation5.core.NativeRunResult
 import com.mcruz.vibestation5.data.Destination
 import com.mcruz.vibestation5.data.ExecutableReport
 import com.mcruz.vibestation5.data.Game
@@ -25,7 +29,16 @@ import com.mcruz.vibestation5.data.RuntimeLog
 import com.mcruz.vibestation5.data.RuntimeStage
 import com.mcruz.vibestation5.input.GuestAction
 import com.mcruz.vibestation5.input.GuestInputRouter
+import java.io.File
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class VibeStationState(
     val folders: List<LibraryFolder> = emptyList(),
@@ -37,18 +50,39 @@ data class VibeStationState(
     val preparation: ExecutableReport? = null,
     val logs: List<RuntimeLog> = emptyList(),
     val inputStatus: String = "Touch controls + keyboard + gamepad",
-    val audioStatus: String = "Android audio cues ready",
+    val audioStatus: String = "Guest audio HLE not initialized",
     val menu: MenuPresentation = MenuPresentation(),
     val isScanning: Boolean = false,
-    val demoActive: Boolean = false,
+    val guestActive: Boolean = false,
+    val guestStatus: String = "Native runtime idle",
+    val guestInstructionCount: Long = 0,
+    val guestImportCount: Long = 0,
+    val guestFrame: GuestFramePresentation? = null,
     val errorMessage: String? = null,
     val nativeBackend: String = "JNI unavailable",
+)
+
+data class GuestFramePresentation(
+    val width: Int,
+    val height: Int,
+    val argb8888: IntArray,
+    val sequence: Long,
+)
+
+private data class LoadedRuntime(
+    val runtime: NativeGuestRuntime,
+    val report: ExecutableReport?,
+    val gameName: String,
 )
 
 class RuntimeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = GameLibraryRepository(application)
     private val inspector = ExecutableInspector()
-    private val audio = MenuAudioCues()
+    private var guestRuntime: NativeGuestRuntime? = null
+    private var runtimeJob: Job? = null
+    private var lastVideoSequence = 0L
+    private val inputButtons = AtomicLong(0)
+    private val audioSink = GuestAudioSink()
 
     var state by androidx.compose.runtime.mutableStateOf(
         VibeStationState(
@@ -65,7 +99,7 @@ class RuntimeViewModel(application: Application) : AndroidViewModel(application)
     init {
         appendLog(LogSeverity.Info, "VibeStation5 Android runtime initialized.")
         appendLog(LogSeverity.Info, "Native backend: ${state.nativeBackend}.")
-        appendLog(LogSeverity.Info, "Android loader/preflight is available; guest CPU execution is not yet ported.")
+        appendLog(LogSeverity.Success, "Native Android SELF/ELF loader and x86-64 guest interpreter are online.")
         if (state.folders.isNotEmpty()) refreshLibrary()
     }
 
@@ -123,7 +157,17 @@ class RuntimeViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectGame(id: String) {
-        state = state.copy(selectedGameId = id, preparation = null, stage = RuntimeStage.Idle, demoActive = false)
+        stopGuest(closeRuntime = true)
+        state = state.copy(
+            selectedGameId = id,
+            preparation = null,
+            stage = RuntimeStage.Idle,
+            guestActive = false,
+            guestStatus = "Native runtime idle",
+            guestInstructionCount = 0,
+            guestImportCount = 0,
+            audioStatus = "Guest audio HLE not initialized",
+        )
     }
 
     fun prepareSelectedGame() {
@@ -131,18 +175,25 @@ class RuntimeViewModel(application: Application) : AndroidViewModel(application)
             showError(IllegalStateException("Select a game before preparing the Android runtime."))
             return
         }
-        state = state.copy(stage = RuntimeStage.Preparing, preparation = null, demoActive = false)
-        appendLog(LogSeverity.Info, "Inspecting ${game.name} on Android…")
+        stopGuest(closeRuntime = true)
+        state = state.copy(stage = RuntimeStage.Preparing, preparation = null, guestActive = false)
+        appendLog(LogSeverity.Info, "Loading ${game.name} into the native Android runtime…")
         viewModelScope.launch {
             runCatching {
-                inspector.inspect(getApplication<Application>().contentResolver, Uri.parse(game.executableUri))
-            }.onSuccess { report ->
-                state = state.copy(stage = RuntimeStage.Ready, preparation = report)
+                loadSelectedRuntime(game)
+            }.onSuccess { loaded ->
+                guestRuntime = loaded.runtime
+                state = state.copy(
+                    stage = RuntimeStage.Ready,
+                    preparation = loaded.report,
+                    guestStatus = loaded.runtime.description,
+                )
                 appendLog(
                     LogSeverity.Success,
-                    "Prepared ${report.format}: ${report.loadableSegmentCount} loadable segment(s), entry ${hex(report.entryPoint)}.",
+                    "Prepared ${loaded.report?.format}: ${loaded.report?.loadableSegmentCount} loadable segment(s), entry ${hex(loaded.report?.entryPoint ?: 0)}.",
                 )
-                if (report.encryptedSegmentCount > 0 || report.compressedSegmentCount > 0) {
+                val report = loaded.report
+                if (report != null && (report.encryptedSegmentCount > 0 || report.compressedSegmentCount > 0)) {
                     appendLog(
                         LogSeverity.Warning,
                         "This image still has ${report.encryptedSegmentCount} encrypted and ${report.compressedSegmentCount} compressed SELF segment(s).",
@@ -155,28 +206,62 @@ class RuntimeViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun startInputAudioDemo() {
-        if (state.preparation == null) {
-            showError(IllegalStateException("Prepare a game before starting the input/audio demo."))
+    fun launchDreamingSarah() {
+        if (state.guestActive) {
+            stopGuest()
             return
         }
+        if (runtimeJob?.isActive == true) return
+
+        val game = selectedGame
         state = state.copy(
-            stage = RuntimeStage.InputDemo,
-            demoActive = true,
+            stage = RuntimeStage.Preparing,
             destination = Destination.Runtime,
-            menu = MenuPresentation(statusMessage = "Android compatibility preview"),
+            guestStatus = "Creating native Android guest process…",
+            errorMessage = null,
         )
-        audio.confirm(state.menu.effectsVolume)
-        appendLog(LogSeverity.Success, "Android touch, keyboard, gamepad, and audio demo started.")
-        appendLog(LogSeverity.Warning, "This is a native UI compatibility preview; x86-64 guest execution remains an Apple-target-only milestone.")
+        runtimeJob = viewModelScope.launch {
+            try {
+                val loaded = guestRuntime?.let { LoadedRuntime(it, state.preparation, game?.name ?: "Dreaming Sarah") }
+                    ?: loadRuntimeForLaunch(game)
+                guestRuntime = loaded.runtime
+                state = state.copy(
+                    stage = RuntimeStage.Running,
+                    preparation = loaded.report ?: state.preparation,
+                    guestActive = true,
+                    guestStatus = loaded.runtime.description,
+                    audioStatus = "Guest audio HLE waiting for title initialization",
+                )
+                appendLog(LogSeverity.Success, "Executing ${loaded.gameName} through the native Android x86-64 interpreter.")
+                runGuestLoop(loaded.runtime)
+            } catch (_: CancellationException) {
+                // A user stop or game change is a normal runtime transition.
+            } catch (error: Throwable) {
+                state = state.copy(stage = RuntimeStage.Failed, guestActive = false)
+                showError(error)
+            }
+        }
     }
 
-    fun stopDemo() {
+    fun stopGuest(closeRuntime: Boolean = false) {
+        runtimeJob?.cancel()
+        runtimeJob = null
+        audioSink.release()
+        inputButtons.set(0)
+        guestRuntime?.setInput(0)
+        if (closeRuntime) {
+            guestRuntime?.close()
+            guestRuntime = null
+            lastVideoSequence = 0
+        }
         state = state.copy(
             stage = if (state.preparation != null) RuntimeStage.Ready else RuntimeStage.Idle,
-            demoActive = false,
+            guestActive = false,
+            guestStatus = if (closeRuntime) "Native runtime idle" else "Native runtime paused",
+            audioStatus = "Guest audio HLE not initialized",
+            guestFrame = if (closeRuntime) null else state.guestFrame,
         )
-        appendLog(LogSeverity.Info, "Android input/audio demo stopped.")
+        appendLog(LogSeverity.Info, if (closeRuntime) "Native guest process closed." else "Native guest execution paused.")
     }
 
     fun clearLogs() {
@@ -188,59 +273,85 @@ class RuntimeViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun consumeInput(action: GuestAction) {
-        if (!state.demoActive) return
-        when (action) {
-            GuestAction.Up -> moveSelection(-1)
-            GuestAction.Down -> moveSelection(1)
-            GuestAction.Left -> adjustOption(-0.05f)
-            GuestAction.Right -> adjustOption(0.05f)
-            GuestAction.Confirm -> confirmSelection()
-            GuestAction.Back -> navigateBack()
-            GuestAction.Options -> {
-                state = state.copy(menu = state.menu.copy(screen = MenuScreen.Options, selectedIndex = 0))
-                audio.confirm(state.menu.effectsVolume)
+        if (!state.guestActive) return
+        val mask = when (action) {
+            GuestAction.Up -> 0x0010L
+            GuestAction.Right -> 0x0020L
+            GuestAction.Down -> 0x0040L
+            GuestAction.Left -> 0x0080L
+            GuestAction.Confirm -> 0x4000L
+            GuestAction.Back -> 0x2000L
+            GuestAction.Options -> 0x0008L
+        }
+        inputButtons.getAndUpdate { buttons -> buttons or mask }
+        viewModelScope.launch {
+            delay(120)
+            inputButtons.getAndUpdate { buttons -> buttons and mask.inv() }
+        }
+    }
+
+    private suspend fun loadSelectedRuntime(game: Game): LoadedRuntime = withContext(Dispatchers.IO) {
+        val resolver = getApplication<Application>().contentResolver
+        val uri = Uri.parse(game.executableUri)
+        val report = inspector.inspect(resolver, uri)
+        val executable = resolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: error("Android could not open ${game.name}'s executable.")
+        val contentRoot = uri.path?.let(::File)?.parentFile?.absolutePath.takeIf { uri.scheme == "file" }
+        LoadedRuntime(NativeGuestRuntime(executable, contentRoot), report, game.name)
+    }
+
+    private suspend fun loadRuntimeForLaunch(game: Game?): LoadedRuntime {
+        if (game != null) return loadSelectedRuntime(game)
+        return withContext(Dispatchers.IO) {
+            val application = getApplication<Application>()
+            val executable = listOfNotNull(
+                File(application.filesDir, "PPSA02929-app0/eboot.bin"),
+                application.getExternalFilesDir(null)?.let { File(it, "PPSA02929-app0/eboot.bin") },
+            ).firstOrNull(File::isFile)
+                ?: error("Select Dreaming Sarah from the Android library before launching it.")
+            val report = runCatching {
+                inspector.inspect(application.contentResolver, Uri.fromFile(executable))
+            }.getOrNull()
+            LoadedRuntime(NativeGuestRuntime(executable.readBytes(), executable.parentFile?.absolutePath), report, "Dreaming Sarah")
+        }
+    }
+
+    private suspend fun runGuestLoop(runtime: NativeGuestRuntime) {
+        while (currentCoroutineContext().isActive) {
+            val slice = withContext(Dispatchers.Default) {
+                runtime.setInput(inputButtons.get())
+                val result = runtime.run(GUEST_TIMESLICE_INSTRUCTIONS)
+                val audio = runtime.drainAudio()
+                val frame = runtime.readVideoFrame(lastVideoSequence)?.toPresentation()
+                if (audio.pcm16Stereo.isNotEmpty()) {
+                    audioSink.write(audio.sampleRate, audio.pcm16Stereo)
+                }
+                GuestSlice(result, audio.pcm16Stereo.size, audio.sampleRate, frame)
+            }
+            val result = slice.result
+            if (slice.audioBytes > 0) {
+                state = state.copy(audioStatus = "Guest PCM16 stereo • ${slice.sampleRate} Hz • Android AudioTrack")
+            }
+            slice.frame?.let { frame ->
+                lastVideoSequence = frame.sequence
+                state = state.copy(guestFrame = frame)
+            }
+            publishRunResult(result)
+            if (result.terminal) {
+                state = state.copy(stage = RuntimeStage.Failed, guestActive = false)
+                appendLog(LogSeverity.Error, "Native guest stopped: ${result.reason} at ${result.instructionPointer}.")
+                result.recentInstructions.takeLast(8).forEach { appendLog(LogSeverity.Debug, it) }
+                break
             }
         }
     }
 
-    private fun moveSelection(delta: Int) {
-        val count = state.menu.items.size
-        val selected = (state.menu.selectedIndex + delta + count) % count
-        state = state.copy(menu = state.menu.copy(selectedIndex = selected, statusMessage = null))
-        audio.navigate(state.menu.effectsVolume)
-    }
-
-    private fun adjustOption(delta: Float) {
-        val menu = state.menu
-        if (menu.screen != MenuScreen.Options) return
-        val changed = when (menu.selectedIndex) {
-            0 -> menu.copy(musicVolume = (menu.musicVolume + delta).coerceIn(0f, 1f))
-            1 -> menu.copy(effectsVolume = (menu.effectsVolume + delta).coerceIn(0f, 1f))
-            else -> return
-        }
-        state = state.copy(menu = changed)
-        audio.navigate(changed.effectsVolume)
-    }
-
-    private fun confirmSelection() {
-        val menu = state.menu
-        if (menu.screen == MenuScreen.Main && menu.selectedIndex == 2) {
-            state = state.copy(menu = menu.copy(screen = MenuScreen.Options, selectedIndex = 0))
-        } else if (menu.screen == MenuScreen.Options && menu.selectedIndex == 2) {
-            state = state.copy(menu = menu.copy(screen = MenuScreen.Main, selectedIndex = 2))
-        } else {
-            state = state.copy(menu = menu.copy(statusMessage = "Guest CPU backend is not connected on Android yet"))
-        }
-        audio.confirm(state.menu.effectsVolume)
-    }
-
-    private fun navigateBack() {
-        if (state.menu.screen == MenuScreen.Options) {
-            state = state.copy(menu = state.menu.copy(screen = MenuScreen.Main, selectedIndex = 2))
-            audio.confirm(state.menu.effectsVolume)
-        } else {
-            stopDemo()
-        }
+    private fun publishRunResult(result: NativeRunResult) {
+        state = state.copy(
+            guestInstructionCount = result.totalInstructionCount,
+            guestImportCount = result.interceptedImports,
+            guestStatus = "${result.instructionPointer} • ${result.totalInstructionCount} instructions • ${result.interceptedImports} HLE calls • ${result.gpuDraws} draws • ${result.gpuFlips} flips",
+        )
     }
 
     private fun appendLog(severity: LogSeverity, message: String) {
@@ -256,23 +367,88 @@ class RuntimeViewModel(application: Application) : AndroidViewModel(application)
     private fun hex(value: Long): String = "0x%016X".format(value)
 
     override fun onCleared() {
-        audio.close()
+        runtimeJob?.cancel()
+        audioSink.release()
+        guestRuntime?.close()
+        guestRuntime = null
         super.onCleared()
+    }
+
+    private companion object {
+        const val GUEST_TIMESLICE_INSTRUCTIONS = 250_000L
     }
 }
 
-private class MenuAudioCues {
-    private val generator = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 90) }.getOrNull()
+private data class GuestSlice(
+    val result: NativeRunResult,
+    val audioBytes: Int,
+    val sampleRate: Int,
+    val frame: GuestFramePresentation?,
+)
 
-    fun navigate(volume: Float) {
-        if (volume > 0.01f) generator?.startTone(ToneGenerator.TONE_PROP_BEEP, 45)
+private fun GuestVideoFrame.toPresentation(): GuestFramePresentation {
+    val pixelCount = width * height
+    val argb = IntArray(pixelCount)
+    for (pixel in 0 until pixelCount) {
+        val offset = pixel * 4
+        val blue = bgra8888[offset].toInt() and 0xFF
+        val green = bgra8888[offset + 1].toInt() and 0xFF
+        val red = bgra8888[offset + 2].toInt() and 0xFF
+        val alpha = bgra8888[offset + 3].toInt() and 0xFF
+        argb[pixel] = (alpha shl 24) or (red shl 16) or (green shl 8) or blue
+    }
+    return GuestFramePresentation(width, height, argb, sequence)
+}
+
+private class GuestAudioSink {
+    private var track: AudioTrack? = null
+    private var sampleRate: Int = 0
+
+    @Synchronized
+    fun write(requestedSampleRate: Int, pcm16Stereo: ByteArray) {
+        if (pcm16Stereo.isEmpty()) return
+        val output = if (track == null || sampleRate != requestedSampleRate) {
+            release()
+            val minimum = AudioTrack.getMinBufferSize(
+                requestedSampleRate,
+                AudioFormat.CHANNEL_OUT_STEREO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(requestedSampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                        .build(),
+                )
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .setBufferSizeInBytes(maxOf(minimum, 16 * 1024))
+                .build()
+                .also {
+                    track = it
+                    sampleRate = requestedSampleRate
+                    it.play()
+                }
+        } else {
+            checkNotNull(track)
+        }
+        output.write(pcm16Stereo, 0, pcm16Stereo.size, AudioTrack.WRITE_BLOCKING)
     }
 
-    fun confirm(volume: Float) {
-        if (volume > 0.01f) generator?.startTone(ToneGenerator.TONE_PROP_ACK, 80)
-    }
-
-    fun close() {
-        generator?.release()
+    @Synchronized
+    fun release() {
+        track?.let { output ->
+            runCatching { output.stop() }
+            output.release()
+        }
+        track = null
+        sampleRate = 0
     }
 }

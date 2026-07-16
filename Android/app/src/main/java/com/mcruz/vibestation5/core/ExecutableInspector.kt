@@ -129,7 +129,7 @@ class ExecutableInspector {
         }
 
         return ExecutableReport(
-            format = format,
+            format = if (format != "Decrypted ELF" && abiVersion == 2) "PS5 SELF" else format,
             entryPoint = entryPoint,
             programHeaderCount = programHeaderCount,
             loadableSegmentCount = loadableCount,

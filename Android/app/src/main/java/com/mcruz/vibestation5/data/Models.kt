@@ -30,7 +30,7 @@ enum class RuntimeStage(val label: String) {
     Idle("Idle"),
     Preparing("Preparing"),
     Ready("Image Ready"),
-    InputDemo("Input/Audio Demo"),
+    Running("Native Guest Running"),
     Failed("Failed"),
 }
 

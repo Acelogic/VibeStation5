@@ -54,13 +54,11 @@ struct RuntimeSummaryView: View {
                     .foregroundStyle(VibeTheme.green)
                 Label("Cooperative guest threads and core HLE", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(VibeTheme.green)
-                Label("Dreaming Sarah menu-ready AGC flip", systemImage: "checkmark.circle.fill")
+                Label("AGC display flip after menu layouts load", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(VibeTheme.green)
-                Label("Metal guest video surface", systemImage: "checkmark.circle.fill")
+                Label("Metal guest-buffer presenter", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(VibeTheme.green)
-                Label("Dreaming Sarah menu milestone surface", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(VibeTheme.green)
-                Label("General AGC draw rasterization pending", systemImage: "clock.badge.exclamationmark")
+                Label("Gen5 shader translation and rasterization pending", systemImage: "clock.badge.exclamationmark")
                     .foregroundStyle(VibeTheme.yellow)
             }
         }

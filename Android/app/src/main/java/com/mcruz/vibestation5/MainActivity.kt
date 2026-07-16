@@ -23,11 +23,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = false
+        if (intent.getBooleanExtra(EXTRA_LAUNCH_DREAMING_SARAH_MENU, false)) {
+            model.launchDreamingSarah()
+        }
         setContent { VibeStationApp(model) }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-        if (event.keyCode == KeyEvent.KEYCODE_BACK && !model.state.demoActive) {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK && !model.state.guestActive) {
             super.dispatchKeyEvent(event)
         } else {
             model.input.handleKeyEvent(event) || super.dispatchKeyEvent(event)
@@ -35,4 +38,8 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean =
         model.input.handleMotionEvent(event) || super.dispatchGenericMotionEvent(event)
+
+    private companion object {
+        const val EXTRA_LAUNCH_DREAMING_SARAH_MENU = "launch_dreaming_sarah_menu"
+    }
 }

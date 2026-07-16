@@ -172,6 +172,7 @@ Report inspect(const std::vector<std::uint8_t>& data) {
     }
 
     report.abi_version = reader.u8(elf_offset + 8);
+    if (report.format != 0 && report.abi_version == 2) report.format = 2;
     report.entry_point = reader.u64le(elf_offset + 24);
     const auto program_header_offset = reader.u64le(elf_offset + 32);
     const auto header_size = reader.u16le(elf_offset + 52);
